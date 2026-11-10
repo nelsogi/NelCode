@@ -1,0 +1,83 @@
+using System.Collections.Concurrent;
+using NelCode.Engine;
+using NelCode.Storage;
+using Spectre.Console;
+
+namespace NelCode.UI;
+
+/// <summary>
+/// La conversation à l'écran :
+///   > Bonjour !                    <- le message de l'utilisateur
+///   ● Bonjour, comment vas-tu ?    <- la réponse, écrite au fur et à mesure
+/// </summary>
+public static class ChatView
+{
+    public static void ShowUser(string message) =>
+        AnsiConsole.MarkupLine($"[{Theme.Dim}]{Theme.Prompt}[/] [{Theme.User}]{Markup.Escape(message)}[/]");
+
+    public static void ShowReply(string reply)
+    {
+        AnsiConsole.Markup($"[{Theme.Accent}]{Theme.ReplyBullet}[/] ");
+        AnsiConsole.Write(new Text(reply, Theme.Style(Theme.Text)));
+        AnsiConsole.WriteLine();
+        AnsiConsole.WriteLine();
+    }
+
+    /// <summary>Un message d'une conversation reprise (/resume).</summary>
+    public static void ShowMessage(ChatMessage message)
+    {
+        if (message.Role == ChatMessage.UserRole)
+            ShowUser(message.Content);
+        else
+            ShowReply(message.Content);
+    }
+
+    /// <summary>
+    /// Demande la réponse au modèle et l'affiche caractère par caractère. Un spinner tourne jusqu'au premier
+    /// caractère. cancellation (Échap) : la réponse s'arrête là, "(interrompu)" est ajouté.
+    /// </summary>
+    /// <returns>La réponse écrite (éventuellement coupée).</returns>
+    public static string Reply(ChatEngine chat, IReadOnlyList<(string User, string Reply)> turns, string message,
+        Sampling sampling, CancellationToken cancellation)
+    {
+        // La génération tourne à part et pousse ses caractères ici ; l'affichage les reprend dans l'ordre.
+        using var characters = new BlockingCollection<char>();
+        var generation = Task.Run(() =>
+        {
+            try { return chat.Reply(turns, message, sampling, characters.Add, cancellation); }
+            finally { characters.CompleteAdding(); }
+        });
+
+        char first = default;
+        bool any = false;
+        AnsiConsole.Status()
+            .Spinner(Spinner.Known.Dots)
+            .SpinnerStyle(Theme.Style(Theme.Accent))
+            .Start($"[{Theme.Dim}]Réflexion... (Échap pour arrêter)[/]",
+                _ => any = characters.TryTake(out first, Timeout.Infinite));
+
+        AnsiConsole.Markup($"[{Theme.Accent}]{Theme.ReplyBullet}[/] ");
+        if (any)
+        {
+            Write(first);
+            foreach (char c in characters.GetConsumingEnumerable())
+                Write(c);
+        }
+        else if (!cancellation.IsCancellationRequested)
+        {
+            AnsiConsole.Markup($"[{Theme.Dim}](pas de réponse)[/]");
+        }
+        if (cancellation.IsCancellationRequested)
+            AnsiConsole.Markup($"[{Theme.Dim}] (interrompu)[/]");
+        AnsiConsole.WriteLine();
+
+        string reply = generation.GetAwaiter().GetResult();   // une erreur pendant la génération remonte ici
+
+        if (chat.Generator.LastStats is { Tokens: > 0 } stats)
+            AnsiConsole.MarkupLine($"[{Theme.Dim}]  {stats.Tokens} token{(stats.Tokens > 1 ? "s" : "")} · {stats.TokensPerSecond:0} tokens/s[/]");
+        AnsiConsole.WriteLine();
+        return reply;
+    }
+
+    private static void Write(char c) => AnsiConsole.Write(new Text(c.ToString(), Theme.Style(Theme.Text)));
+}
