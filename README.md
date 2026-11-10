@@ -1,17 +1,42 @@
 # Nel Code
 
-Application console pour discuter avec les modèles entraînés par **MiniChat**, dans le style de Claude Code.
-Nel Code n'entraîne rien : il charge un dossier de modèle MiniChat et génère les réponses.
+Application pour discuter avec les modèles entraînés par **MiniChat**, dans le style de Claude Code : en
+console, ou dans une fenêtre Windows au style terminal. Nel Code n'entraîne rien : il charge un dossier de
+modèle MiniChat et génère les réponses.
+
+## Projets
+
+| Projet | Rôle |
+|---|---|
+| `NelCode.Core` | bibliothèque : moteur (TorchSharp), modèles, conversations, réglages, commandes. Ni Spectre.Console ni WinForms |
+| `NelCode.Console` | l'interface console (Spectre.Console), exécutable `NelCode.exe` |
+| `NelCode.Desktop` | l'interface WinForms (net10.0-windows, x64) |
+
+Les commandes n'écrivent jamais directement : elles passent par `IOutput` (`NelCode.Core/Commands/IOutput.cs`),
+que chaque interface implémente (`ConsoleOutput`, `DesktopOutput`).
 
 ## Lancer
 
 ```powershell
-dotnet run --project NelCode                     # dossier de travail = dossier courant
-dotnet run --project NelCode -- --dir C:\Projets # autre dossier de travail
+dotnet run --project NelCode.Console                     # dossier de travail = dossier courant
+dotnet run --project NelCode.Console -- --dir C:\Projets # autre dossier de travail
+dotnet run --project NelCode.Desktop                     # la fenêtre (--dir marche aussi)
 ```
 
 Le GPU NVIDIA (CUDA) est utilisé s'il est disponible, sinon le CPU. L'écran d'accueil affiche le modèle actif,
 GPU ou CPU, et le dossier de travail.
+
+## Desktop
+
+- À gauche : les conversations groupées par date (clic pour reprendre), les modèles (clic pour changer),
+  le bouton Nouvelle conversation.
+- Au centre : la conversation ; en haut, le modèle, GPU/CPU et le dossier de travail (clic pour le changer).
+- En bas : la saisie, avec les mêmes touches que la console (suggestions après `/`, historique ↑↓),
+  plus `Maj+Entrée` pour aller à la ligne. `Échap` arrête une réponse.
+- Barre d'état : modèle, GPU/CPU, tokens/s, température.
+- Glisser un `.nelmodel` sur la fenêtre l'installe (comme `/import`).
+
+Toutes les commandes marchent aussi ; leurs questions (confirmer, choisir) s'ouvrent dans une petite fenêtre.
 
 ## Installer un modèle
 

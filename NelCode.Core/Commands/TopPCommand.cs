@@ -1,5 +1,4 @@
 using NelCode.Storage;
-using NelCode.UI;
 
 namespace NelCode.Commands;
 
@@ -16,6 +15,6 @@ public sealed class TopPCommand : ICommand
             context.Settings.TopP = Settings.ClampTopP(CommandContext.ParseNumber(args[0], Usage));
             context.Settings.Save();
         }
-        Messages.Dim($"(top-p = {(context.Settings.TopP >= 1 ? "désactivé" : context.Settings.TopP)})");
+        context.Output.Dim($"(top-p = {(context.Settings.TopP >= 1 ? "désactivé" : context.Settings.TopP)})");
     }
 }

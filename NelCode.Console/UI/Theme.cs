@@ -1,3 +1,4 @@
+using NelCode.Commands;
 using Spectre.Console;
 
 namespace NelCode.UI;
@@ -23,4 +24,23 @@ public static class Theme
     public const string ReplyBullet = "●";
 
     public static Style Style(string color) => Spectre.Console.Style.Parse(color);
+
+    /// <summary>La couleur d'un rôle de texte des commandes (IOutput).</summary>
+    public static string Color(Tone tone) => tone switch
+    {
+        Tone.Dim => Dim,
+        Tone.Accent => Accent,
+        Tone.Command => Command,
+        Tone.User => User,
+        Tone.Success => Success,
+        Tone.Warning => Warning,
+        Tone.Error => Error,
+        _ => Text,
+    };
+
+    /// <summary>Le texte en markup Spectre, échappé : ses "[" et "]" restent du texte.</summary>
+    public static string Markup(Styled styled) =>
+        styled.Tone == Tone.Text
+            ? Spectre.Console.Markup.Escape(styled.Text)
+            : $"[{Color(styled.Tone)}]{Spectre.Console.Markup.Escape(styled.Text)}[/]";
 }

@@ -1,5 +1,4 @@
 using NelCode.Storage;
-using NelCode.UI;
 
 namespace NelCode.Commands;
 
@@ -21,9 +20,9 @@ public sealed class DeleteCommand : ICommand
         bool active = entry.Name == context.ModelName;
         string question = $"Supprimer définitivement « {entry.Name} » ({entry.Bytes / 1e6:0} Mo) ?" +
                           (active ? " C'est le modèle actif." : "");
-        if (!Prompts.Confirm(question))
+        if (!context.Output.Confirm(question))
         {
-            Messages.Dim("Suppression annulée.");
+            context.Output.Dim("Suppression annulée.");
             return;
         }
 
@@ -31,8 +30,8 @@ public sealed class DeleteCommand : ICommand
             context.UnloadModel();   // libère les poids avant d'effacer leurs fichiers
         ModelLibrary.Delete(entry.Name);
 
-        Messages.Success($"Modèle « {entry.Name} » supprimé.");
+        context.Output.Success($"Modèle « {entry.Name} » supprimé.");
         if (active)
-            Messages.Dim("Plus de modèle actif : /model <nom> pour en choisir un, /import pour en installer un.");
+            context.Output.Dim("Plus de modèle actif : /model <nom> pour en choisir un, /import pour en installer un.");
     }
 }

@@ -1,5 +1,3 @@
-using NelCode.UI;
-using Spectre.Console;
 
 namespace NelCode.Commands;
 
@@ -11,7 +9,6 @@ public sealed class ClearCommand : ICommand
 
     public void Execute(CommandContext context, string[] args)
     {
-        AnsiConsole.Clear();
-        WelcomeBanner.Show(context);
+        context.Output.Clear(context);
     }
 }

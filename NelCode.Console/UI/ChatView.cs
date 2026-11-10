@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using NelCode.Engine;
+using NelCode.Commands;
 using NelCode.Storage;
 using Spectre.Console;
 
@@ -36,15 +36,14 @@ public static class ChatView
     /// Demande la réponse au modèle et l'affiche caractère par caractère. Un spinner tourne jusqu'au premier
     /// caractère. cancellation (Échap) : la réponse s'arrête là, "(interrompu)" est ajouté.
     /// </summary>
-    /// <returns>La réponse écrite (éventuellement coupée).</returns>
-    public static string Reply(ChatEngine chat, IReadOnlyList<(string User, string Reply)> turns, string message,
-        Sampling sampling, CancellationToken cancellation)
+    /// <returns>La réponse écrite (éventuellement coupée), déjà ajoutée à la conversation si elle n'est pas vide.</returns>
+    public static string Reply(CommandContext context, string message, CancellationToken cancellation)
     {
         // La génération tourne à part et pousse ses caractères ici ; l'affichage les reprend dans l'ordre.
         using var characters = new BlockingCollection<char>();
         var generation = Task.Run(() =>
         {
-            try { return chat.Reply(turns, message, sampling, characters.Add, cancellation); }
+            try { return context.SendMessage(message, characters.Add, cancellation); }
             finally { characters.CompleteAdding(); }
         });
 
@@ -73,7 +72,7 @@ public static class ChatView
 
         string reply = generation.GetAwaiter().GetResult();   // une erreur pendant la génération remonte ici
 
-        if (chat.Generator.LastStats is { Tokens: > 0 } stats)
+        if (context.Chat?.Generator.LastStats is { Tokens: > 0 } stats)
             AnsiConsole.MarkupLine($"[{Theme.Dim}]  {stats.Tokens} token{(stats.Tokens > 1 ? "s" : "")} · {stats.TokensPerSecond:0} tokens/s[/]");
         AnsiConsole.WriteLine();
         return reply;

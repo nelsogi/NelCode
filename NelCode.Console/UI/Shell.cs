@@ -46,11 +46,9 @@ public sealed class Shell
             }
             else
             {
-                var chat = _context.RequireChat();
+                _context.RequireChat();   // pas de modèle : l'erreur tout de suite, sans spinner
                 using var escape = EscapeKey.Watch();
-                string reply = ChatView.Reply(chat, _context.Session.Turns, input, _context.Settings.Sampling, escape.Token);
-                if (reply.Trim().Length > 0)
-                    _context.RecordTurn(input, reply);
+                ChatView.Reply(_context, input, escape.Token);
             }
         }
         catch (UserException e)

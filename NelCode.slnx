@@ -1,3 +1,5 @@
 <Solution>
-  <Project Path="NelCode/NelCode.csproj" />
+  <Project Path="NelCode.Core/NelCode.Core.csproj" />
+  <Project Path="NelCode.Console/NelCode.Console.csproj" />
+  <Project Path="NelCode.Desktop/NelCode.Desktop.csproj" />
 </Solution>

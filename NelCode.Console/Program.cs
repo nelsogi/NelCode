@@ -34,22 +34,8 @@ if (warning is not null)
 
 // GPU NVIDIA s'il y en a un d'utilisable, sinon CPU.
 var device = cuda.is_available() ? CUDA : CPU;
-var context = new CommandContext(new CommandRegistry(), settings, device, workingDirectory);
-
-// Le dernier modèle utilisé, sinon le plus récent des modèles installés.
-var models = ModelLibrary.List();
-string? startModel = models.Any(m => m.Name == settings.LastModel) ? settings.LastModel : models.FirstOrDefault()?.Name;
-if (startModel is not null)
-{
-    try
-    {
-        Messages.Spin($"Chargement de « {startModel} »...", () => { context.LoadModel(startModel); return 0; });
-    }
-    catch (Exception e)
-    {
-        Messages.Error($"Le modèle « {startModel} » ne se charge pas : {e.Message}");
-    }
-}
+var context = new CommandContext(new CommandRegistry(), new ConsoleOutput(), settings, device, workingDirectory);
+context.LoadDefaultModel();
 
 new Shell(context).Run();
 return 0;

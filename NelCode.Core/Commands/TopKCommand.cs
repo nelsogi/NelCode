@@ -1,5 +1,4 @@
 using NelCode.Storage;
-using NelCode.UI;
 
 namespace NelCode.Commands;
 
@@ -16,6 +15,6 @@ public sealed class TopKCommand : ICommand
             context.Settings.TopK = Settings.ClampTopK((int)CommandContext.ParseNumber(args[0], Usage));
             context.Settings.Save();
         }
-        Messages.Dim($"(top-k = {(context.Settings.TopK == 0 ? "désactivé" : context.Settings.TopK)})");
+        context.Output.Dim($"(top-k = {(context.Settings.TopK == 0 ? "désactivé" : context.Settings.TopK)})");
     }
 }

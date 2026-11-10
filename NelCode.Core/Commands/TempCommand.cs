@@ -1,5 +1,4 @@
 using NelCode.Storage;
-using NelCode.UI;
 
 namespace NelCode.Commands;
 
@@ -16,6 +15,6 @@ public sealed class TempCommand : ICommand
             context.Settings.Temperature = Settings.ClampTemperature(CommandContext.ParseNumber(args[0], Usage));
             context.Settings.Save();
         }
-        Messages.Dim($"(température = {context.Settings.Temperature})");
+        context.Output.Dim($"(température = {context.Settings.Temperature})");
     }
 }

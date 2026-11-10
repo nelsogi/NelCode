@@ -12,20 +12,35 @@ namespace NelCode.Commands;
 /// </summary>
 public sealed class CommandContext
 {
-    public CommandContext(CommandRegistry registry, Settings settings, Device device, string workingDirectory)
+    public CommandContext(CommandRegistry registry, IOutput output, Settings settings, Device device, string workingDirectory)
     {
         Registry = registry;
+        Output = output;
         Settings = settings;
         Device = device;
-        WorkingDirectory = workingDirectory;
+        _workingDirectory = workingDirectory;
         Session = NewSessionObject();
     }
 
     public CommandRegistry Registry { get; }
+
+    /// <summary>Où les commandes écrivent : la console ou la fenêtre.</summary>
+    public IOutput Output { get; }
     public Settings Settings { get; }
     public Device Device { get; }
     public bool OnGpu => Device.type == DeviceType.CUDA;
-    public string WorkingDirectory { get; }
+
+    /// <summary>Le dossier de travail. Le changer l'applique aussi à la conversation en cours.</summary>
+    public string WorkingDirectory
+    {
+        get => _workingDirectory;
+        set
+        {
+            _workingDirectory = value;
+            Session.WorkingDirectory = value;
+        }
+    }
+    private string _workingDirectory = "";
 
     /// <summary>Le nom du modèle actif, null si aucun.</summary>
     public string? ModelName { get; private set; }
@@ -57,6 +72,26 @@ public sealed class CommandContext
         Settings.Save();
     }
 
+    /// <summary>
+    /// Au démarrage : le dernier modèle utilisé, sinon le plus récent des modèles installés. Une erreur de
+    /// chargement est affichée, sans arrêter le programme.
+    /// </summary>
+    public void LoadDefaultModel()
+    {
+        var models = ModelLibrary.List();
+        string? name = models.Any(m => m.Name == Settings.LastModel) ? Settings.LastModel : models.FirstOrDefault()?.Name;
+        if (name is null)
+            return;
+        try
+        {
+            Output.Busy($"Chargement de « {name} »...", () => LoadModel(name));
+        }
+        catch (Exception e)
+        {
+            Output.Error($"Le modèle « {name} » ne se charge pas : {e.Message}");
+        }
+    }
+
     /// <summary>Plus de modèle actif (avant de supprimer le modèle chargé). La conversation reste.</summary>
     public void UnloadModel()
     {
@@ -80,6 +115,18 @@ public sealed class CommandContext
             LoadModel(session.Model);
         Session = session;
         Session.Model = ModelName ?? session.Model;
+    }
+
+    /// <summary>
+    /// La réponse du modèle actif au message, caractère par caractère via onChar. Elle est ajoutée à la
+    /// conversation (et sauvegardée) si elle n'est pas vide, même interrompue par cancellation.
+    /// </summary>
+    public string SendMessage(string message, Action<char> onChar, CancellationToken cancellation)
+    {
+        string reply = RequireChat().Reply(Session.Turns, message, Settings.Sampling, onChar, cancellation);
+        if (reply.Trim().Length > 0)
+            RecordTurn(message, reply);
+        return reply;
     }
 
     /// <summary>Ajoute une question et sa réponse à la conversation, et la sauvegarde.</summary>

@@ -1,4 +1,3 @@
-using NelCode.UI;
 
 namespace NelCode.Commands;
 
@@ -11,6 +10,6 @@ public sealed class NewCommand : ICommand
     public void Execute(CommandContext context, string[] args)
     {
         context.NewSession();
-        Messages.Success("Nouvelle conversation.");
+        context.Output.Success("Nouvelle conversation.");
     }
 }

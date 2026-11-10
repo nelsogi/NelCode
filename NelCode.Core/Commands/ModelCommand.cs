@@ -1,4 +1,3 @@
-using NelCode.UI;
 
 namespace NelCode.Commands;
 
@@ -12,13 +11,13 @@ public sealed class ModelCommand : ICommand
     {
         if (args.Length == 0)
         {
-            Messages.Dim(context.ModelName is { } current ? $"(modèle actif : {current})" : "(aucun modèle actif)");
+            context.Output.Dim(context.ModelName is { } current ? $"(modèle actif : {current})" : "(aucun modèle actif)");
             return;
         }
 
         string name = string.Join(' ', args);
-        Messages.Spin($"Chargement de « {name} »...", () => { context.LoadModel(name); return 0; });
+        context.Output.Busy($"Chargement de « {name} »...", () => context.LoadModel(name));
         context.NewSession();
-        Messages.Success($"Modèle actif : {name}. Nouvelle conversation.");
+        context.Output.Success($"Modèle actif : {name}. Nouvelle conversation.");
     }
 }

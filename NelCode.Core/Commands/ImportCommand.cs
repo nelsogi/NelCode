@@ -1,6 +1,4 @@
 using NelCode.Storage;
-using NelCode.UI;
-using Spectre.Console;
 
 namespace NelCode.Commands;
 
@@ -28,7 +26,7 @@ public sealed class ImportCommand : ICommand
             if (NelModelPackage.IsPackage(source))
             {
                 info = NelModelPackage.Read(source);
-                ShowInfo(info);
+                ShowInfo(context.Output, info);
                 name ??= string.IsNullOrWhiteSpace(info.Name) ? Path.GetFileNameWithoutExtension(source) : info.Name.Trim();
             }
             string finalName = name ?? Path.GetFileName(source.TrimEnd('\\', '/'));
@@ -36,10 +34,10 @@ public sealed class ImportCommand : ICommand
             // Nom déjà pris : on demande avant le long travail d'extraction et de chargement.
             if (Directory.Exists(ModelLibrary.Folder(finalName)) && !replace)
             {
-                bool? choice = ResolveConflict(ref finalName);
+                bool? choice = ResolveConflict(context.Output, ref finalName);
                 if (choice is null)
                 {
-                    Messages.Dim("Import annulé.");
+                    context.Output.Dim("Import annulé.");
                     return;
                 }
                 replace = choice.Value;
@@ -47,22 +45,22 @@ public sealed class ImportCommand : ICommand
             name = finalName;
 
             bool replacesActive = replace && name == context.ModelName;
-            var (entry, parameters) = Messages.Spin($"Installation et test de chargement de « {name} »...",
+            var (entry, parameters) = context.Output.Busy($"Installation et test de chargement de « {name} »...",
                 () => ModelLibrary.Import(source, finalName, replace));
-            Messages.Success($"Modèle « {entry.Name} » {(replace ? "remplacé" : "installé")} ({entry.Bytes / 1e6:0} Mo), il se charge correctement.");
+            context.Output.Success($"Modèle « {entry.Name} » {(replace ? "remplacé" : "installé")} ({entry.Bytes / 1e6:0} Mo), il se charge correctement.");
 
             if (info?.Parameters is { } announced && announced != parameters)
-                Messages.Warning($"model-info.json annonce {announced:N0} paramètres, mais le modèle en a {parameters:N0}. " +
+                context.Output.Warning($"model-info.json annonce {announced:N0} paramètres, mais le modèle en a {parameters:N0}. " +
                                  "Les infos du fichier sont peut-être fausses (le modèle, lui, fonctionne).");
 
             if (replacesActive || context.Chat is null)
             {
-                Messages.Spin($"Chargement de « {name} »...", () => { context.LoadModel(finalName); return 0; });
-                Messages.Dim(replacesActive ? "Le modèle actif a été rechargé." : "C'est maintenant le modèle actif.");
+                context.Output.Busy($"Chargement de « {name} »...", () => context.LoadModel(finalName));
+                context.Output.Dim(replacesActive ? "Le modèle actif a été rechargé." : "C'est maintenant le modèle actif.");
             }
             else
             {
-                Messages.Dim($"/model {name} pour l'utiliser.");
+                context.Output.Dim($"/model {name} pour l'utiliser.");
             }
         }
         catch (Exception e) when (e is IOException or ArgumentException or InvalidDataException or UnauthorizedAccessException)
@@ -72,21 +70,21 @@ public sealed class ImportCommand : ICommand
     }
 
     /// <summary>Le nom existe déjà : remplacer (true), autre nom (false, name changé), annuler (null).</summary>
-    private static bool? ResolveConflict(ref string name)
+    private static bool? ResolveConflict(IOutput output, ref string name)
     {
-        int choice = Prompts.Choose($"Un modèle « {name} » existe déjà. Que faire ?",
+        int choice = output.Choose($"Un modèle « {name} » existe déjà. Que faire ?",
             "Remplacer", "Choisir un autre nom", "Annuler");
         if (choice == 0) return true;
         if (choice != 1) return null;
 
         while (true)
         {
-            string other = Prompts.Ask("Nouveau nom (vide = annuler) :");
+            string other = output.Ask("Nouveau nom (vide = annuler) :");
             if (other.Length == 0) return null;
             if (!ModelLibrary.IsValidName(other))
-                Messages.Warning($"« {other} » n'est pas un nom valide (pas de \\ / : * ? \" < > |).");
+                output.Warning($"« {other} » n'est pas un nom valide (pas de \\ / : * ? \" < > |).");
             else if (Directory.Exists(ModelLibrary.Folder(other)))
-                Messages.Warning($"« {other} » existe aussi.");
+                output.Warning($"« {other} » existe aussi.");
             else
             {
                 name = other;
@@ -95,13 +93,13 @@ public sealed class ImportCommand : ICommand
         }
     }
 
-    private static void ShowInfo(ModelInfo info)
+    private static void ShowInfo(IOutput output, ModelInfo info)
     {
-        var grid = new Grid().AddColumn(new GridColumn().PadRight(2)).AddColumn();
+        var rows = new List<(string, Styled)>();
         void Row(string label, string? value)
         {
             if (!string.IsNullOrWhiteSpace(value))
-                grid.AddRow(new Markup($"[{Theme.Dim}]{label}[/]"), new Text(value));
+                rows.Add((label, new Styled(value)));
         }
 
         Row("Nom", info.Name);
@@ -113,9 +111,6 @@ public sealed class ImportCommand : ICommand
         Row("Val loss", info.ValLoss?.ToString("F3"));
         Row("Format", $"version {info.FormatVersion}");
 
-        AnsiConsole.Write(new Panel(grid)
-            .Header($"[{Theme.Accent}] model-info.json [/]")
-            .RoundedBorder()
-            .BorderStyle(Theme.Style(Theme.Border)));
+        output.Details("model-info.json", rows);
     }
 }
