@@ -1,0 +1,35 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!--
+    Installe Nel Code Desktop dans Program Files\Nel Code, avec un raccourci dans le menu Démarrer.
+    Un MSI ne dépasse pas 2 Go et TorchSharp CUDA en pèse 4,6 : les fichiers vont dans des .cab à côté du
+    .msi (EmbedCab="no"), chacun sous 2 Go. Le .msi et ses .cab doivent être dans le même dossier.
+    UpgradeCode : ne jamais le changer, c'est lui qui fait remplacer une ancienne version par la nouvelle.
+  -->
+  <Package Name="Nel Code" Manufacturer="nelsogi" Version="$(Version)"
+           UpgradeCode="27B6360A-37A6-46DC-AD7A-F17FD9EE0978" Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="Une version plus récente de Nel Code est déjà installée." />
+    <MediaTemplate EmbedCab="no" CompressionLevel="mszip" MaximumUncompressedMediaSize="1400"
+                   CabinetTemplate="nelcode{0}.cab" />
+
+    <Icon Id="nelcode.ico" SourceFile="..\NelCode.Desktop\nelcode.ico" />
+    <Property Id="ARPPRODUCTICON" Value="nelcode.ico" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Nel Code" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut Id="NelCodeShortcut" Name="Nel Code" Description="Discuter avec les modèles MiniChat"
+                  Target="[INSTALLFOLDER]NelCode.Desktop.exe" WorkingDirectory="PersonalFolder" />
+        <RegistryValue Root="HKCU" Key="Software\NelCode" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main">
+      <Files Directory="INSTALLFOLDER" Include="$(PublishDir)\**" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Package>
+</Wix>

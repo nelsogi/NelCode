@@ -52,8 +52,14 @@ GPU ou CPU, et le dossier de travail.
 
 Toutes les commandes marchent aussi ; leurs questions (confirmer, choisir) s'ouvrent dans une petite fenêtre.
 
-Pour l'installer : `.\publish.ps1` publie une version autonome (win-x64, sans .NET à installer) dans
-`publish\NelCode.Desktop` et ajoute « Nel Code » au menu Démarrer. Compter quelques Go (TorchSharp CUDA).
+Pour l'installer :
+
+- depuis une [release](https://github.com/nelsogi/NelCode/releases) : télécharger le `.msi` **et tous les `.cab`**
+  dans un même dossier, puis lancer le `.msi` (Program Files\Nel Code, raccourci dans le menu Démarrer).
+  Un MSI ne peut pas dépasser 2 Go et TorchSharp CUDA en pèse 4,6 : les fichiers sont dans les `.cab`.
+- depuis les sources : `.\publish.ps1` publie une version autonome (win-x64, sans .NET à installer) dans
+  `publish\NelCode.Desktop` et ajoute « Nel Code » au menu Démarrer ; `.\publish.ps1 -Msi` fait l'installateur
+  dans `publish\msi` (projet `NelCode.Installer`, WiX 5).
 
 ## Installer un modèle
 

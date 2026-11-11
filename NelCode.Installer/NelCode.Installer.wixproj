@@ -1,0 +1,15 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <!-- L'installateur MSI de Nel Code Desktop, fait à partir de publish\NelCode.Desktop (publish.ps1 -Msi).
+       Hors de NelCode.slnx : il n'a de sens qu'après la publication. -->
+  <PropertyGroup>
+    <Version Condition="'$(Version)' == ''">1.0.0</Version>
+    <OutputName>NelCode-$(Version)</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\publish\NelCode.Desktop</PublishDir>
+    <DefineConstants>Version=$(Version);PublishDir=$(PublishDir)</DefineConstants>
+    <!-- Plus de 300 fichiers et 4,6 Go : la validation ICE prend du temps sans rien apporter ici. -->
+    <SuppressValidation>true</SuppressValidation>
+  </PropertyGroup>
+
+</Project>
