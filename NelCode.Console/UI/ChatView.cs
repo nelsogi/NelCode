@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 using NelCode.Commands;
 using NelCode.Storage;
 using Spectre.Console;
@@ -41,9 +42,12 @@ public static class ChatView
     {
         // La génération tourne à part et pousse ses caractères ici ; l'affichage les reprend dans l'ordre.
         using var characters = new BlockingCollection<char>();
+        // L'erreur est attrapée dans la tâche même : si elle en sortait, le débogueur de Visual Studio
+        // s'arrêterait dessus ("non gérée par le code utilisateur"). Elle est relancée plus bas.
         var generation = Task.Run(() =>
         {
-            try { return context.SendMessage(message, characters.Add, cancellation); }
+            try { return (Reply: context.SendMessage(message, characters.Add, cancellation), Error: (Exception?)null); }
+            catch (Exception e) { return (Reply: "", Error: e); }
             finally { characters.CompleteAdding(); }
         });
 
@@ -70,7 +74,9 @@ public static class ChatView
             AnsiConsole.Markup($"[{Theme.Dim}] (interrompu)[/]");
         AnsiConsole.WriteLine();
 
-        string reply = generation.GetAwaiter().GetResult();   // une erreur pendant la génération remonte ici
+        var (reply, error) = generation.GetAwaiter().GetResult();
+        if (error is not null)
+            ExceptionDispatchInfo.Throw(error);   // une erreur pendant la génération remonte ici, vers Shell
 
         if (context.Chat?.Generator.LastStats is { Tokens: > 0 } stats)
             AnsiConsole.MarkupLine($"[{Theme.Dim}]  {stats.Tokens} token{(stats.Tokens > 1 ? "s" : "")} · {stats.TokensPerSecond:0} tokens/s[/]");

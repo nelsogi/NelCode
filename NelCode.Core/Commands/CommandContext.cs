@@ -140,7 +140,7 @@ public sealed class CommandContext
 
     /// <summary>Un nombre tapé par l'utilisateur : "0,8" ou "0.8".</summary>
     public static double ParseNumber(string text, string usage) =>
-        double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
+        double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double value) && double.IsFinite(value)
             ? value
             : throw new UserException($"« {text} » n'est pas un nombre. Utilisation : {usage}");
 }

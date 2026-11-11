@@ -208,27 +208,23 @@ internal sealed class MainForm : Form
     {
         if (_busy) return false;
         SetBusy(true);
-        try
+        // L'erreur est attrapée dans la tâche même : si elle en sortait, le débogueur de Visual Studio
+        // s'arrêterait dessus ("non gérée par le code utilisateur"), même pour une simple faute de frappe.
+        Exception? error = await Task.Run(() =>
         {
-            await Task.Run(work);
-            return true;
-        }
-        catch (UserException e)
+            try { work(); return null; }
+            catch (Exception e) { return e; }
+        });
+        SetBusy(false);
+        RefreshViews();
+
+        if (error is not null)
         {
-            _output.Error(e.Message);
+            _output.Error(error is UserException ? error.Message : $"{error.GetType().Name} : {error.Message}");
+            _output.Line(Tone.Text, "");
         }
-        catch (Exception e)
-        {
-            _output.Error($"{e.GetType().Name} : {e.Message}");
-        }
-        finally
-        {
-            SetBusy(false);
-            RefreshViews();
-            if (_context?.QuitRequested == true) Close();
-        }
-        _output.Line(Tone.Text, "");
-        return false;
+        if (_context?.QuitRequested == true) Close();
+        return error is null;
     }
 
     private void SetBusy(bool busy)
