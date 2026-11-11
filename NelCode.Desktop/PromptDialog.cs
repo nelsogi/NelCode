@@ -71,10 +71,11 @@ internal sealed class PromptDialog : Form
     }
 
     /// <returns>Le texte tapé, "" si annulé.</returns>
-    public static string Ask(IWin32Window owner, string question)
+    public static string Ask(IWin32Window owner, string question, string initial = "")
     {
         using var dialog = new PromptDialog(question, 150);
-        var text = new TextBox { Dock = DockStyle.Top, BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.Surface, ForeColor = Theme.Text };
+        var text = new TextBox { Dock = DockStyle.Top, BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.Surface, ForeColor = Theme.Text, Text = initial };
+        text.SelectAll();
         dialog._body.Controls.Add(text);
         dialog.CancelButton = dialog.AddButton("Annuler", DialogResult.Cancel);
         dialog.AcceptButton = dialog.AddButton("OK", DialogResult.OK);

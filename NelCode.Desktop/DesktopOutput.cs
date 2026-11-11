@@ -8,8 +8,9 @@ namespace NelCode.Desktop;
 /// <summary>
 /// IOutput dans la fenêtre. Les commandes tournent en tâche de fond : chaque appel est passé au fil de
 /// l'interface (Invoke), et attend sa fin, comme une écriture dans la console.
+/// currentSession : la conversation en cours, pour savoir où sont les messages réaffichés (Modifier, Régénérer).
 /// </summary>
-internal sealed class DesktopOutput(Form owner, ChatView chat, StatusBar statusBar) : IOutput
+internal sealed class DesktopOutput(Form owner, ChatView chat, StatusBar statusBar, Func<Session?> currentSession) : IOutput
 {
     public void Line(Tone tone, string text) => Ui(() => chat.WriteLine(text, Theme.Of(tone)));
 
@@ -52,10 +53,11 @@ internal sealed class DesktopOutput(Form owner, ChatView chat, StatusBar statusB
 
     public void Message(ChatMessage message) => Ui(() =>
     {
-        if (message.Role == ChatMessage.UserRole)
-            chat.User(message.Content);
-        else
-            chat.Reply(message.Content);
+        var control = message.Role == ChatMessage.UserRole
+            ? chat.User(message.Content)
+            : chat.Reply(message.Content, message.Versions);
+        if (currentSession() is { } session && session.Messages.FindIndex(m => ReferenceEquals(m, message)) is >= 0 and var index)
+            control.SetOrigin(session, index);
     });
 
     public void Clear(CommandContext context) => Ui(() =>

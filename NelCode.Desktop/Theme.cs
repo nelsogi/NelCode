@@ -81,6 +81,26 @@ internal static class Theme
         return button;
     }
 
+    /// <summary>Un menu (clic droit) sombre.</summary>
+    public static ContextMenuStrip Menu() => new()
+    {
+        Renderer = new ToolStripProfessionalRenderer(new MenuColors()),
+        BackColor = Surface,
+        ForeColor = Text,
+        Font = Small,
+        ShowImageMargin = false,
+    };
+
+    private sealed class MenuColors : ProfessionalColorTable
+    {
+        public override Color ToolStripDropDownBackground => Surface;
+        public override Color MenuBorder => Border;
+        public override Color MenuItemSelected => Hover;
+        public override Color MenuItemBorder => Hover;
+        public override Color SeparatorDark => Border;
+        public override Color SeparatorLight => Surface;
+    }
+
     private const int DwmUseImmersiveDarkMode = 20;
     private const int DwmCaptionColor = 35;
     private const int DwmTextColor = 36;

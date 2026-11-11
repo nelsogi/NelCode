@@ -10,6 +10,7 @@ namespace NelCode.Desktop.Controls;
 ///   > /t_
 /// Entrée envoie, Maj+Entrée va à la ligne. Liste ouverte : ↑↓ choisissent, Tab complète, Entrée lance la
 /// commande choisie, Échap ferme la liste. Liste fermée : ↑↓ parcourent l'historique, Échap vide la ligne.
+/// Le bouton Envoyer devient Stop pendant une réponse.
 /// </summary>
 internal sealed class InputBox : UserControl
 {
@@ -21,6 +22,8 @@ internal sealed class InputBox : UserControl
     private int _historyIndex;
     private string _draft = "";
     private bool _dismissed;   // liste fermée par Échap, rouverte dès que le texte change
+    private bool _busy, _generating;
+    private readonly Button _send = Theme.Button("Envoyer");
 
     private readonly ListBox _suggestions = new()
     {
@@ -61,8 +64,21 @@ internal sealed class InputBox : UserControl
             Font = Theme.Bold,
             Padding = new Padding(0, 0, 4, 0),
         };
+        _send.AutoSize = false;
+        _send.Dock = DockStyle.Top;
+        _send.Height = 30;
+        _send.Click += (_, _) =>
+        {
+            if (_generating) StopClicked?.Invoke();
+            else if (!_busy) Submit();
+            _text.Focus();
+        };
+        var side = new Panel { Dock = DockStyle.Right, Width = 108, Padding = new Padding(8, 0, 0, 0) };
+        side.Controls.Add(_send);
+
         var row = new Panel { Dock = DockStyle.Fill };
         row.Controls.Add(_text);
+        row.Controls.Add(side);
         row.Controls.Add(prompt);
         var gap = new Panel { Dock = DockStyle.Top, Height = 6 };
         var hint = new Label
@@ -91,11 +107,33 @@ internal sealed class InputBox : UserControl
     /// <summary>Une ligne envoyée (Entrée). La zone est déjà vidée.</summary>
     public event Action<string>? Submitted;
 
+    /// <summary>Le bouton Stop : arrêter la réponse en cours.</summary>
+    public event Action? StopClicked;
+
     /// <summary>Pendant une réponse ou une commande : on peut taper, mais Entrée n'envoie pas.</summary>
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public bool Busy { get; set; }
+    public bool Busy
+    {
+        get => _busy;
+        set { _busy = value; UpdateSend(); }
+    }
+
+    /// <summary>Pendant une réponse : Envoyer devient Stop.</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool Generating
+    {
+        get => _generating;
+        set { _generating = value; UpdateSend(); }
+    }
 
     public void FocusText() => _text.Focus();
+
+    private void UpdateSend()
+    {
+        _send.Text = _generating ? "■ Stop" : "Envoyer";
+        _send.ForeColor = _generating ? Theme.Error : Theme.Text;
+        _send.Enabled = _generating || !_busy;
+    }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
@@ -105,7 +143,7 @@ internal sealed class InputBox : UserControl
         {
             case Keys.Enter when !e.Shift:
                 e.SuppressKeyPress = true;
-                if (Busy) return;
+                if (_busy) return;
                 if (open) Complete("");
                 Submit();
                 break;

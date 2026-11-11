@@ -22,6 +22,8 @@ public static class SessionStore
         File.Move(path + ".tmp", path, overwrite: true);
     }
 
+    public static void Delete(string id) => File.Delete(Path.Combine(AppPaths.Sessions, id + ".json"));
+
     /// <summary>De la plus récente à la plus ancienne. Un fichier illisible est ignoré.</summary>
     public static List<Session> List()
     {

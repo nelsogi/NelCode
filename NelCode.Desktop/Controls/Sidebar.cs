@@ -1,17 +1,32 @@
+using System.Globalization;
 using NelCode.Storage;
 
 namespace NelCode.Desktop.Controls;
 
 /// <summary>
-/// La colonne de gauche : le bouton Nouvelle conversation, les conversations groupées par date
-/// (clic pour reprendre), les modèles installés (clic pour changer).
+/// La colonne de gauche : le bouton Nouvelle conversation, la recherche (titre et contenu), les conversations
+/// groupées par date (clic pour reprendre, clic droit : Renommer / Exporter / Supprimer), les modèles
+/// installés (clic pour changer).
 /// </summary>
 internal sealed class Sidebar : UserControl
 {
     private const int MaxSessions = 100;
+    private const int TitleLength = 40;
 
     private readonly ListBox _sessions = List();
     private readonly ListBox _models = List();
+    private readonly TextBox _search = new()
+    {
+        Dock = DockStyle.Fill,
+        BorderStyle = BorderStyle.None,
+        BackColor = Theme.Surface,
+        ForeColor = Theme.Text,
+        Font = Theme.Small,
+        PlaceholderText = "Rechercher...",
+    };
+    private readonly ContextMenuStrip _menu = Theme.Menu();
+    private List<Session> _all = [];
+    private Session? _menuSession;   // la conversation du clic droit
     private string? _currentSession;
     private string? _activeModel;
 
@@ -32,14 +47,32 @@ internal sealed class Sidebar : UserControl
         _models.DrawItem += DrawModel;
         _sessions.MouseClick += (_, e) =>
         {
-            if (ItemAt(_sessions, e.Location) is Session session) SessionChosen?.Invoke(session);
+            if (e.Button == MouseButtons.Left && ItemAt(_sessions, e.Location) is Session session) SessionChosen?.Invoke(session);
         };
+        _sessions.MouseUp += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Right || ItemAt(_sessions, e.Location) is not Session session) return;
+            _menuSession = session;
+            _menu.Show(_sessions, e.Location);
+        };
+        _menu.Items.Add("Renommer...", null, (_, _) => RenameClicked?.Invoke(_menuSession!));
+        _menu.Items.Add("Exporter en .txt...", null, (_, _) => ExportClicked?.Invoke(_menuSession!, ".txt"));
+        _menu.Items.Add("Exporter en .md...", null, (_, _) => ExportClicked?.Invoke(_menuSession!, ".md"));
+        _menu.Items.Add(new ToolStripSeparator());
+        _menu.Items.Add("Supprimer...", null, (_, _) => DeleteClicked?.Invoke(_menuSession!)).ForeColor = Theme.Error;
+
+        _search.TextChanged += (_, _) => ShowFiltered();
+        var searchBox = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Surface, Padding = new Padding(6, 5, 6, 0) };
+        searchBox.Controls.Add(_search);
+        var searchRow = new Panel { Dock = DockStyle.Top, Height = 34, Padding = new Padding(0, 0, 0, 6) };
+        searchRow.Controls.Add(searchBox);
         _models.MouseClick += (_, e) =>
         {
             if (ItemAt(_models, e.Location) is ModelEntry model) ModelChosen?.Invoke(model.Name);
         };
 
         Controls.Add(_sessions);
+        Controls.Add(searchRow);
         Controls.Add(Title("CONVERSATIONS", DockStyle.Top));
         Controls.Add(newButton);
         Controls.Add(Title("MODÈLES", DockStyle.Bottom));
@@ -49,19 +82,48 @@ internal sealed class Sidebar : UserControl
     public event Action? NewClicked;
     public event Action<Session>? SessionChosen;
     public event Action<string>? ModelChosen;
+    public event Action<Session>? RenameClicked;
+    public event Action<Session>? DeleteClicked;
+    /// <summary>La conversation et l'extension voulue : ".txt" ou ".md".</summary>
+    public event Action<Session, string>? ExportClicked;
+
+    /// <summary>Le nom donné, sinon le début du premier message (coupé à un espace).</summary>
+    public static string TitleOf(Session session)
+    {
+        if (!string.IsNullOrWhiteSpace(session.Title)) return session.Title;
+        string first = string.Join(' ', (session.Messages.FirstOrDefault()?.Content ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (first.Length == 0) return "Nouvelle conversation";
+        if (first.Length <= TitleLength) return first;
+        int cut = first.LastIndexOf(' ', TitleLength);
+        return first[..(cut > TitleLength / 2 ? cut : TitleLength)] + "…";
+    }
 
     /// <summary>Les conversations, de la plus récente à la plus ancienne ; currentId est mise en évidence.</summary>
     public void ShowSessions(IEnumerable<Session> sessions, string currentId)
     {
         _currentSession = currentId;
+        _all = sessions.Where(s => s.Messages.Count > 0).ToList();
+        ShowFiltered();
+    }
+
+    /// <summary>Les conversations dont le titre ou un message contient la recherche (sans casse ni accents).</summary>
+    private void ShowFiltered()
+    {
+        string query = _search.Text.Trim();
+        var compare = CultureInfo.CurrentCulture.CompareInfo;
+        bool Has(string text) => compare.IndexOf(text, query, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
+        var shown = query.Length == 0 ? _all : _all.Where(s => Has(TitleOf(s)) || s.Messages.Any(m => Has(m.Content)));
+
         _sessions.BeginUpdate();
         _sessions.Items.Clear();
-        foreach (var group in sessions.Where(s => s.Messages.Count > 0).Take(MaxSessions).GroupBy(s => Group(s.Date)))
+        foreach (var group in shown.Take(MaxSessions).GroupBy(s => Group(s.Date)))
         {
             _sessions.Items.Add(group.Key);
             foreach (var session in group)
                 _sessions.Items.Add(session);
         }
+        if (_sessions.Items.Count == 0 && query.Length > 0)
+            _sessions.Items.Add("Aucun résultat");
         _sessions.EndUpdate();
     }
 
@@ -103,8 +165,7 @@ internal sealed class Sidebar : UserControl
         var session = (Session)item;
         bool current = session.Id == _currentSession;
         Fill(e, current ? Theme.Hover : Theme.Sidebar);
-        string first = session.Messages[0].Content.ReplaceLineEndings(" ");
-        TextRenderer.DrawText(e.Graphics, first, Theme.Small, Inset(e.Bounds), current ? Theme.Text : Theme.User,
+        TextRenderer.DrawText(e.Graphics, TitleOf(session), Theme.Small, Inset(e.Bounds), current ? Theme.Text : Theme.User,
             Flags | TextFormatFlags.EndEllipsis);
     }
 

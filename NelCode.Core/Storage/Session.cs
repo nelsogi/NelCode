@@ -7,6 +7,10 @@ public sealed record ChatMessage(string Role, string Content)
 {
     public const string UserRole = "user";
     public const string AssistantRole = "assistant";
+
+    /// <summary>Les versions d'une réponse régénérée (Content = celle affichée). Null : une seule version.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Versions { get; init; }
 }
 
 /// <summary>
@@ -20,6 +24,10 @@ public sealed class Session
     public string Id { get; set; } = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss-fff");
     public string Model { get; set; } = "";
     public string WorkingDirectory { get; set; } = "";
+
+    /// <summary>Le nom donné par l'utilisateur. Null : titre tiré du premier message.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; set; }
 
     /// <summary>Dernier message (mis à jour à chaque sauvegarde).</summary>
     public DateTime Date { get; set; } = DateTime.Now;
