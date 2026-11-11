@@ -32,7 +32,7 @@ public sealed class InfoCommand : ICommand
         var s = context.Settings;
         grid.Add(("Génération", new Styled(
             $"température {s.Temperature} · top-k {(s.TopK == 0 ? "désactivé" : s.TopK)} · " +
-            $"top-p {(s.TopP >= 1 ? "désactivé" : s.TopP)} · réponse max {ChatEngine.MaxReplyTokens} tokens")));
+            $"top-p {(s.TopP >= 1 ? "désactivé" : s.TopP)} · réponse max {s.MaxReplyTokens} tokens")));
         string inPrompt = context.Chat is { } c && context.Session.Messages.Count > 0
             ? $", dont {c.TurnsInLastPrompt} dans le dernier prompt"
             : "";

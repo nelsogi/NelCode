@@ -1,25 +1,35 @@
 using System.Runtime.InteropServices;
 using NelCode.Commands;
+using NelCode.Storage;
 
 namespace NelCode.Desktop;
 
-/// <summary>Les couleurs, les polices et les symboles de Nel Code Desktop, à un seul endroit (thème sombre).</summary>
+/// <summary>
+/// Les couleurs, les polices et les symboles de Nel Code Desktop, à un seul endroit. Le thème (sombre ou clair)
+/// est lu dans settings.json au démarrage : en changer demande de relancer la fenêtre.
+/// </summary>
 internal static class Theme
 {
-    public static readonly Color Background = Color.FromArgb(0x1E, 0x1E, 0x1E);   // la conversation
-    public static readonly Color Sidebar = Color.FromArgb(0x18, 0x18, 0x18);      // liste de gauche, barre d'état
-    public static readonly Color Surface = Color.FromArgb(0x25, 0x25, 0x26);      // zone de saisie, boutons, dialogues
-    public static readonly Color Hover = Color.FromArgb(0x2F, 0x2F, 0x31);        // élément sélectionné ou survolé
-    public static readonly Color Border = Color.FromArgb(0x3C, 0x3C, 0x3C);
+    // En premier : les couleurs ci-dessous en dépendent (initialisées dans l'ordre du fichier).
+    public static readonly bool IsLight = Settings.Load(out _).Theme == "light";
 
-    public static readonly Color Text = Color.FromArgb(0xD4, 0xD4, 0xD4);
-    public static readonly Color User = Color.FromArgb(0xB3, 0xB3, 0xB3);
-    public static readonly Color Dim = Color.FromArgb(0x80, 0x80, 0x80);
-    public static readonly Color Accent = Color.FromArgb(0xD9, 0x77, 0x57);
-    public static readonly Color Command = Color.FromArgb(0xE0, 0xA8, 0x7E);
-    public static readonly Color Success = Color.FromArgb(0x6C, 0xC6, 0x7A);
-    public static readonly Color Warning = Color.FromArgb(0xE5, 0xC0, 0x7B);
-    public static readonly Color Error = Color.FromArgb(0xF1, 0x4C, 0x4C);
+    public static readonly Color Background = Pick(0x1E1E1E, 0xFFFFFF);   // la conversation
+    public static readonly Color Sidebar = Pick(0x181818, 0xF3F3F3);      // liste de gauche, barre d'état
+    public static readonly Color Surface = Pick(0x252526, 0xECECEC);      // zone de saisie, boutons, dialogues
+    public static readonly Color Hover = Pick(0x2F2F31, 0xDDDDE0);        // élément sélectionné ou survolé
+    public static readonly Color Border = Pick(0x3C3C3C, 0xCCCCCC);
+    public static readonly Color Found = Pick(0x5C4A1E, 0xFFE58F);        // un résultat de Ctrl+F
+    public static readonly Color FoundCurrent = Pick(0x9A6A12, 0xFFB938); // le résultat choisi
+
+    public static readonly Color Text = Pick(0xD4D4D4, 0x1F1F1F);
+    public static readonly Color User = Pick(0xB3B3B3, 0x4A4A4A);
+    public static readonly Color Dim = Pick(0x808080, 0x737373);
+    public static readonly Color Faded = Pick(0x5A5A5A, 0xB0B0B0);        // messages que le modèle ne voit plus
+    public static readonly Color Accent = Pick(0xD97757, 0xC0582F);
+    public static readonly Color Command = Pick(0xE0A87E, 0x9C4F1E);
+    public static readonly Color Success = Pick(0x6CC67A, 0x2E7D32);
+    public static readonly Color Warning = Pick(0xE5C07B, 0x8A6100);
+    public static readonly Color Error = Pick(0xF14C4C, 0xC62828);
 
     public const string Logo = "✻";
     public const string Prompt = ">";
@@ -32,6 +42,9 @@ internal static class Theme
     public static readonly Font Font = new(MonoFamily, 10f);
     public static readonly Font Small = new(MonoFamily, 9f);
     public static readonly Font Bold = new(MonoFamily, 10f, FontStyle.Bold);
+
+    /// <summary>L'icône de l'exécutable (ApplicationIcon), pour les fenêtres.</summary>
+    public static readonly Icon? AppIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
     public static Color Of(Tone tone) => tone switch
     {
@@ -46,22 +59,25 @@ internal static class Theme
     };
 
     /// <summary>
-    /// Barre de titre sombre (Windows 10 20H1 et plus). Windows 11 : aussi sa couleur exacte, même si
-    /// « couleur d'accentuation sur les barres de titre » est activé. Ailleurs, sans effet.
+    /// Barre de titre aux couleurs du thème (Windows 10 20H1 et plus pour le mode sombre ; Windows 11 : aussi
+    /// sa couleur exacte, même si « couleur d'accentuation sur les barres de titre » est activé).
     /// </summary>
     public static void DarkTitleBar(Form form)
     {
-        int on = 1;
-        DwmSetWindowAttribute(form.Handle, DwmUseImmersiveDarkMode, ref on, sizeof(int));
+        int dark = IsLight ? 0 : 1;
+        DwmSetWindowAttribute(form.Handle, DwmUseImmersiveDarkMode, ref dark, sizeof(int));
         int caption = ColorTranslator.ToWin32(Sidebar);
         DwmSetWindowAttribute(form.Handle, DwmCaptionColor, ref caption, sizeof(int));
         int text = ColorTranslator.ToWin32(Text);
         DwmSetWindowAttribute(form.Handle, DwmTextColor, ref text, sizeof(int));
     }
 
-    /// <summary>Barres de défilement sombres pour une liste ou un texte.</summary>
-    public static void DarkScrollBars(Control control) =>
-        control.HandleCreated += (_, _) => SetWindowTheme(control.Handle, "DarkMode_Explorer", null);
+    /// <summary>Barres de défilement sombres pour une liste ou un texte (thème sombre seulement).</summary>
+    public static void DarkScrollBars(Control control)
+    {
+        if (!IsLight)
+            control.HandleCreated += (_, _) => SetWindowTheme(control.Handle, "DarkMode_Explorer", null);
+    }
 
     /// <summary>Un bouton plat dans les couleurs du thème.</summary>
     public static Button Button(string text)
@@ -81,7 +97,7 @@ internal static class Theme
         return button;
     }
 
-    /// <summary>Un menu (clic droit) sombre.</summary>
+    /// <summary>Un menu (clic droit) aux couleurs du thème.</summary>
     public static ContextMenuStrip Menu() => new()
     {
         Renderer = new ToolStripProfessionalRenderer(new MenuColors()),
@@ -90,6 +106,24 @@ internal static class Theme
         Font = Small,
         ShowImageMargin = false,
     };
+
+    /// <summary>Une fenêtre de dialogue aux couleurs du thème (réglages, palette, questions).</summary>
+    public static void Dialog(Form form, int width, int height)
+    {
+        form.AutoScaleDimensions = new SizeF(96F, 96F);
+        form.AutoScaleMode = AutoScaleMode.Dpi;
+        form.Text = "Nel Code";
+        form.FormBorderStyle = FormBorderStyle.FixedDialog;
+        form.StartPosition = FormStartPosition.CenterParent;
+        form.MinimizeBox = form.MaximizeBox = form.ShowInTaskbar = form.ShowIcon = false;
+        form.ClientSize = new Size(width, height);
+        form.BackColor = Background;
+        form.ForeColor = Text;
+        form.Font = Font;
+        form.HandleCreated += (_, _) => DarkTitleBar(form);
+    }
+
+    private static Color Pick(int dark, int light) => Color.FromArgb(unchecked((int)0xFF000000) | (IsLight ? light : dark));
 
     private sealed class MenuColors : ProfessionalColorTable
     {

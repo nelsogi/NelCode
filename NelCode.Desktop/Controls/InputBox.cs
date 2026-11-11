@@ -128,6 +128,13 @@ internal sealed class InputBox : UserControl
 
     public void FocusText() => _text.Focus();
 
+    /// <summary>Met ce texte dans la zone, curseur à la fin (une commande à compléter).</summary>
+    public void Prefill(string text)
+    {
+        SetText(text);
+        _text.Focus();
+    }
+
     private void UpdateSend()
     {
         _send.Text = _generating ? "■ Stop" : "Envoyer";

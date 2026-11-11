@@ -1,7 +1,7 @@
 namespace NelCode.Desktop.Controls;
 
 /// <summary>
-/// La barre d'état :  ⠋ Chargement...            v2 · GPU NVIDIA · 41 tokens/s · température 0.8
+/// La barre d'état :  ⠋ Chargement...      v2 · GPU NVIDIA · 41 tokens/s · contexte 180/256 · température 0.8
 /// L'indicateur à gauche tourne pendant un travail long (chargement, réponse).
 /// </summary>
 internal sealed class StatusBar : UserControl
@@ -25,8 +25,7 @@ internal sealed class StatusBar : UserControl
         _timer.Tick += (_, _) => _busy.Text = $"{Frames[_frame = (_frame + 1) % Frames.Length]} {_status}";
     }
 
-    public void SetInfo(string model, string device, string speed, string temperature) =>
-        _info.Text = string.Join("  ·  ", model, device, speed, temperature);
+    public void SetInfo(params string[] parts) => _info.Text = string.Join("  ·  ", parts);
 
     /// <summary>Lance l'indicateur avec ce texte, ou l'arrête (null).</summary>
     public void SetBusy(string? status)

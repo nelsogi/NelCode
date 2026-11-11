@@ -8,9 +8,6 @@ namespace NelCode.Engine;
 /// </summary>
 public sealed class ChatEngine
 {
-    /// <summary>Longueur max d'une réponse, en tokens (~3 caractères chacun).</summary>
-    public const int MaxReplyTokens = 80;
-
     private readonly HashSet<long> _stopTokens;
 
     public ChatEngine(TextGenerator generator)
@@ -21,15 +18,26 @@ public sealed class ChatEngine
 
     public TextGenerator Generator { get; }
 
+    /// <summary>Ce que le modèle voit en tout, en tokens : prompt et réponse.</summary>
+    public int BlockSize => Generator.Model.Config.BlockSize;
+
     /// <summary>Combien de tours de la conversation tenaient dans le dernier prompt (commande /info).</summary>
     public int TurnsInLastPrompt { get; private set; }
 
-    /// <summary>La réponse au message, caractère par caractère via onChar. Annulée : la réponse s'arrête là.</summary>
+    /// <summary>
+    /// La réponse au message, caractère par caractère via onChar, en maxReplyTokens tokens au plus (pas plus
+    /// de la moitié du contexte). Annulée : la réponse s'arrête là.
+    /// </summary>
     public string Reply(IReadOnlyList<(string User, string Reply)> turns, string message, Sampling sampling,
-        Action<char> onChar, CancellationToken cancellation = default)
+        int maxReplyTokens, Action<char> onChar, CancellationToken cancellation = default)
     {
+        maxReplyTokens = Math.Min(maxReplyTokens, BlockSize / 2);
         string question = ChatFormat.User(message) + BpeTokenizer.AssistantToken;
-        return Generator.Generate(BuildPrompt(turns, question), MaxReplyTokens, sampling, c =>
+        var (first, _) = Fit(turns, maxReplyTokens + Generator.CountTokens(question));
+        TurnsInLastPrompt = turns.Count - first;
+        string prompt = ChatFormat.Identity + string.Concat(turns.Skip(first).Select(t => ChatFormat.Turn(t.User, t.Reply))) + question;
+
+        return Generator.Generate(prompt, maxReplyTokens, sampling, c =>
         {
             if (cancellation.IsCancellationRequested) return false;
             onChar(c);
@@ -38,15 +46,21 @@ public sealed class ChatEngine
     }
 
     /// <summary>
-    /// Le modèle voit BlockSize tokens, dont MaxReplyTokens pour sa réponse : on remonte les tours du plus
-    /// récent au plus ancien et on s'arrête au premier qui ne tient plus. Chaque morceau commence et finit
+    /// Ce que le modèle verra de la conversation au prochain message (question non comptée) : le premier tour
+    /// qu'il voit encore, et les tokens de l'identité et des tours vus.
+    /// </summary>
+    public (int FirstTurn, int Tokens) Context(IReadOnlyList<(string User, string Reply)> turns, int maxReplyTokens) =>
+        Fit(turns, Math.Min(maxReplyTokens, BlockSize / 2));
+
+    /// <summary>
+    /// Le modèle voit BlockSize tokens, dont reserved pour la question et la réponse : on remonte les tours du
+    /// plus récent au plus ancien et on s'arrête au premier qui ne tient plus. Chaque morceau commence et finit
     /// par un token spécial : leurs tokens s'additionnent exactement.
     /// </summary>
-    private string BuildPrompt(IReadOnlyList<(string User, string Reply)> turns, string question)
+    private (int First, int Tokens) Fit(IReadOnlyList<(string User, string Reply)> turns, int reserved)
     {
-        int budget = Generator.Model.Config.BlockSize - MaxReplyTokens
-                     - Generator.CountTokens(ChatFormat.Identity) - Generator.CountTokens(question);
-
+        int used = Generator.CountTokens(ChatFormat.Identity);
+        int budget = BlockSize - reserved - used;
         int first = turns.Count;
         while (first > 0)
         {
@@ -54,10 +68,9 @@ public sealed class ChatEngine
             int cost = Generator.CountTokens(ChatFormat.Turn(user, reply));
             if (cost > budget) break;
             budget -= cost;
+            used += cost;
             first--;
         }
-
-        TurnsInLastPrompt = turns.Count - first;
-        return ChatFormat.Identity + string.Concat(turns.Skip(first).Select(t => ChatFormat.Turn(t.User, t.Reply))) + question;
+        return (first, used);
     }
 }

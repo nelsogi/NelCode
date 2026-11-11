@@ -28,15 +28,32 @@ GPU ou CPU, et le dossier de travail.
 
 ## Desktop
 
-- À gauche : les conversations groupées par date (clic pour reprendre), les modèles (clic pour changer),
-  le bouton Nouvelle conversation.
+- À gauche : Nouvelle conversation et ⚙ (réglages), la recherche (titre et contenu), les conversations
+  groupées par date (clic pour reprendre ; clic droit : Renommer, Exporter en .txt / .md, Supprimer),
+  les modèles (clic pour changer). Le séparateur se tire pour élargir la colonne.
 - Au centre : la conversation ; en haut, le modèle, GPU/CPU et le dossier de travail (clic pour le changer).
+  Au survol d'une réponse : Copier, Régénérer (les versions se parcourent avec ‹ 1/2 ›) ; d'un message :
+  Copier, Modifier (la conversation repart de lui). Les messages que le modèle ne voit plus sont grisés.
 - En bas : la saisie, avec les mêmes touches que la console (suggestions après `/`, historique ↑↓),
-  plus `Maj+Entrée` pour aller à la ligne. `Échap` arrête une réponse.
-- Barre d'état : modèle, GPU/CPU, tokens/s, température.
+  plus `Maj+Entrée` pour aller à la ligne. Envoyer devient Stop pendant une réponse (`Échap` aussi l'arrête).
+- Barre d'état : modèle, GPU/CPU, tokens/s, contexte vu par le modèle (ex. `contexte 180/256`), température.
 - Glisser un `.nelmodel` sur la fenêtre l'installe (comme `/import`).
+- La taille et la place de la fenêtre et la largeur de la colonne sont retenues.
+
+| Raccourci | Effet |
+|---|---|
+| `Ctrl+N` | nouvelle conversation |
+| `Ctrl+K` | palette de commandes (avec recherche) |
+| `Ctrl+L` | efface l'affichage (comme `/clear`) |
+| `Ctrl+F` | rechercher dans la conversation (`Entrée` suivant, `Maj+Entrée` précédent) |
+| `F2` | renommer la conversation |
+| `Ctrl+,` | réglages : température, top-k, top-p, longueur max des réponses, thème sombre / clair |
+| `F1` | à propos (version, modèle, GPU) |
 
 Toutes les commandes marchent aussi ; leurs questions (confirmer, choisir) s'ouvrent dans une petite fenêtre.
+
+Pour l'installer : `.\publish.ps1` publie une version autonome (win-x64, sans .NET à installer) dans
+`publish\NelCode.Desktop` et ajoute « Nel Code » au menu Démarrer. Compter quelques Go (TorchSharp CUDA).
 
 ## Installer un modèle
 
@@ -102,7 +119,8 @@ Tout est dans `%APPDATA%\NelCode` :
 ```
 models\<nom>\           config.json, tokenizer.json, weights.dat (+ model-info.json ou training.json)
 sessions\<id>.json      une conversation : modèle, dossier de travail, date, messages
-settings.json           température, top-k, top-p, dernier modèle utilisé
+settings.json           température, top-k, top-p, longueur max des réponses, dernier modèle utilisé
+                        (+ thème et place de la fenêtre de Desktop) ; partagé par la console et la fenêtre
 ```
 
 Une conversation est sauvegardée après chaque réponse (une réponse arrêtée par Échap est gardée telle quelle).

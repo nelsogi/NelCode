@@ -36,10 +36,20 @@ internal sealed class Sidebar : UserControl
         Padding = new Padding(8);
 
         var newButton = Theme.Button("+  Nouvelle conversation");
-        newButton.Dock = DockStyle.Top;
+        newButton.Dock = DockStyle.Fill;
+        newButton.Font = Theme.Small;   // tient à côté de ⚙
         newButton.AutoSize = false;
-        newButton.Height = 34;
         newButton.Click += (_, _) => NewClicked?.Invoke();
+        var settingsButton = Theme.Button("⚙");
+        settingsButton.Dock = DockStyle.Right;
+        settingsButton.AutoSize = false;
+        settingsButton.Width = 38;
+        settingsButton.Click += (_, _) => SettingsClicked?.Invoke();
+        new ToolTip().SetToolTip(settingsButton, "Réglages (Ctrl+,)");
+        var topRow = new Panel { Dock = DockStyle.Top, Height = 34 };
+        topRow.Controls.Add(newButton);
+        topRow.Controls.Add(new Panel { Dock = DockStyle.Right, Width = 6 });   // écart entre les deux boutons
+        topRow.Controls.Add(settingsButton);
 
         _models.Dock = DockStyle.Bottom;
         _models.Height = 150;
@@ -74,12 +84,13 @@ internal sealed class Sidebar : UserControl
         Controls.Add(_sessions);
         Controls.Add(searchRow);
         Controls.Add(Title("CONVERSATIONS", DockStyle.Top));
-        Controls.Add(newButton);
+        Controls.Add(topRow);
         Controls.Add(Title("MODÈLES", DockStyle.Bottom));
         Controls.Add(_models);   // ajouté en dernier = placé en premier : tout en bas, sous son titre
     }
 
     public event Action? NewClicked;
+    public event Action? SettingsClicked;
     public event Action<Session>? SessionChosen;
     public event Action<string>? ModelChosen;
     public event Action<Session>? RenameClicked;

@@ -123,7 +123,7 @@ public sealed class CommandContext
     /// </summary>
     public string SendMessage(string message, Action<char> onChar, CancellationToken cancellation)
     {
-        string reply = RequireChat().Reply(Session.Turns, message, Settings.Sampling, onChar, cancellation);
+        string reply = RequireChat().Reply(Session.Turns, message, Settings.Sampling, Settings.MaxReplyTokens, onChar, cancellation);
         if (reply.Trim().Length > 0)
             RecordTurn(message, reply);
         return reply;

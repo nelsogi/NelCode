@@ -14,16 +14,7 @@ internal sealed class PromptDialog : Form
 
     private PromptDialog(string question, int height)
     {
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
-        Text = "Nel Code";
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        StartPosition = FormStartPosition.CenterParent;
-        MinimizeBox = MaximizeBox = ShowInTaskbar = false;
-        ClientSize = new Size(560, height);
-        BackColor = Theme.Background;
-        ForeColor = Theme.Text;
-        Font = Theme.Font;
+        Theme.Dialog(this, 560, height);
         Padding = new Padding(16);
 
         var label = new Label { Text = question, Dock = DockStyle.Top, AutoSize = true, MaximumSize = new Size(528, 0) };
@@ -32,10 +23,13 @@ internal sealed class PromptDialog : Form
         Controls.Add(label);
     }
 
-    protected override void OnHandleCreated(EventArgs e)
+    /// <summary>Un texte et OK (À propos).</summary>
+    public static void Inform(IWin32Window owner, string title, string text)
     {
-        base.OnHandleCreated(e);
-        Theme.DarkTitleBar(this);
+        using var dialog = new PromptDialog(text, 90 + Theme.Font.Height * text.Split('\n').Length);
+        dialog.Text = title;
+        dialog.AcceptButton = dialog.CancelButton = dialog.AddButton("OK", DialogResult.OK);
+        dialog.ShowDialog(owner);
     }
 
     public static bool Confirm(IWin32Window owner, string question)

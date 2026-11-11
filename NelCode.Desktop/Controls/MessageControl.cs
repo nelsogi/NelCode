@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using NelCode.Storage;
@@ -33,6 +34,7 @@ internal sealed partial class MessageControl : UserControl
     private int _frame;
     private bool _pendingNewline;   // le dernier "\n" d'un bloc n'est écrit qu'avec la suite : pas de ligne vide en trop
     private bool _editing;
+    private bool _faded, _found;
 
     public MessageControl(Kind kind)
     {
@@ -97,8 +99,65 @@ internal sealed partial class MessageControl : UserControl
         Content = text;
         _text.Clear();
         Write($"{Theme.Prompt} ", Theme.Dim);
-        Write(text, Theme.User);
+        Write(text, Shade(Theme.User));
     }
+
+    /// <summary>Grisé : le modèle ne voit plus ce message (hors de son contexte).</summary>
+    public void SetFaded(bool faded)
+    {
+        if (faded == _faded || _editing || _thinking?.Enabled == true) return;
+        _faded = faded;
+        string content = Content;
+        if (Role == Kind.User)
+        {
+            SetUser(content);
+        }
+        else if (Role == Kind.Reply)
+        {
+            BeginReply();
+            AppendReply(content);
+        }
+    }
+
+    /// <summary>Surligne les occurrences de query (sans casse ni accents) ; renvoie leurs positions dans le texte.</summary>
+    public List<(int Start, int Length)> Find(string query)
+    {
+        ClearFound();
+        var found = new List<(int, int)>();
+        if (query.Length == 0 || _editing) return found;
+        string text = _text.Text;
+        var compare = CultureInfo.CurrentCulture.CompareInfo;
+        for (int from = 0; from < text.Length;)
+        {
+            int at = compare.IndexOf(text.AsSpan(from), query, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace, out int length);
+            if (at < 0 || length == 0) break;
+            found.Add((from + at, length));
+            from += at + length;
+        }
+        foreach (var (start, length) in found)
+            Mark(start, length, Theme.Found);
+        return found;
+    }
+
+    public void Mark(int start, int length, Color color)
+    {
+        _found = true;
+        _text.Select(start, length);
+        _text.SelectionBackColor = color;
+        _text.Select(_text.TextLength, 0);
+    }
+
+    public void ClearFound()
+    {
+        if (!_found) return;
+        _found = false;
+        _text.SelectAll();
+        _text.SelectionBackColor = _text.BackColor;
+        _text.Select(_text.TextLength, 0);
+    }
+
+    /// <summary>La hauteur d'un caractère du texte, depuis le haut du message (pour y faire défiler la vue).</summary>
+    public int OffsetOf(int charIndex) => _text.Top + _text.GetPositionFromCharIndex(charIndex).Y;
 
     /// <summary>Une réponse complète, avec ses versions s'il y en a (la version affichée est text).</summary>
     public void SetReply(string text, IReadOnlyList<string>? versions)
@@ -129,14 +188,16 @@ internal sealed partial class MessageControl : UserControl
         _thinking?.Stop();
         Content = "";
         _text.Clear();
-        Write($"{Theme.ReplyBullet} ", Theme.Accent);
+        Write($"{Theme.ReplyBullet} ", Shade(Theme.Accent));
     }
 
     public void AppendReply(string text)
     {
         Content += text;
-        Write(text, Theme.Text);
+        Write(text, Shade(Theme.Text));
     }
+
+    private Color Shade(Color color) => _faded ? Theme.Faded : color;
 
     /// <summary>Une remarque en gris après la réponse, hors du texte copié : "(interrompu)".</summary>
     public void Note(string text) => Write(text, Theme.Dim);

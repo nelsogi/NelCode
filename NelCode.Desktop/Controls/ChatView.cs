@@ -1,3 +1,5 @@
+using NelCode.Storage;
+
 namespace NelCode.Desktop.Controls;
 
 /// <summary>
@@ -56,10 +58,100 @@ internal sealed class ChatView : UserControl
         header.Controls.Add(_model);
         var rule = new Panel { Dock = DockStyle.Top, Height = 1, BackColor = Theme.Border };
 
+        _find.TextChanged += (_, _) => RunFind();
+        _find.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Enter) StepFind(e.Shift ? -1 : 1);
+            else if (e.KeyCode == Keys.Escape) HideFind();
+            else return;
+            e.SuppressKeyPress = true;
+        };
+        var findBox = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Surface, Padding = new Padding(8, 6, 8, 0) };
+        findBox.Controls.Add(_find);
+        findBox.Controls.Add(_findCount);
+        _findBar.Controls.Add(findBox);
+
         Controls.Add(_list);
+        Controls.Add(_findBar);
         Controls.Add(rule);
         Controls.Add(header);
     }
+
+    // --- Ctrl+F : rechercher dans la conversation ------------------------------------------------------------
+
+    private readonly Panel _findBar = new() { Dock = DockStyle.Top, Height = 36, Visible = false, Padding = new Padding(14, 6, 14, 2) };
+    private readonly TextBox _find = new()
+    {
+        Dock = DockStyle.Fill,
+        BorderStyle = BorderStyle.None,
+        BackColor = Theme.Surface,
+        ForeColor = Theme.Text,
+        Font = Theme.Font,
+        PlaceholderText = "Rechercher dans la conversation (Entrée : suivant, Maj+Entrée : précédent, Échap : fermer)",
+    };
+    private readonly Label _findCount = new() { Dock = DockStyle.Right, AutoSize = true, ForeColor = Theme.Dim, Font = Theme.Small };
+    private List<(MessageControl Message, int Start, int Length)> _matches = [];
+    private int _current = -1;
+
+    public void ShowFind()
+    {
+        _findBar.Visible = true;
+        _find.Focus();
+        _find.SelectAll();
+        RunFind();
+    }
+
+    private void HideFind()
+    {
+        _findBar.Visible = false;
+        foreach (var message in Messages()) message.ClearFound();
+        _matches = [];
+        FindClosed?.Invoke();
+    }
+
+    /// <summary>La recherche fermée (Échap) : la saisie reprend le focus.</summary>
+    public event Action? FindClosed;
+
+    private void RunFind()
+    {
+        string query = _find.Text.Trim();
+        _matches = Messages().SelectMany(m => m.Find(query).Select(f => (m, f.Start, f.Length))).ToList();
+        _current = -1;
+        StepFind(1);
+    }
+
+    /// <summary>Le résultat suivant (+1) ou précédent (-1), en boucle, mis en évidence et amené dans la vue.</summary>
+    private void StepFind(int delta)
+    {
+        _findCount.Text = _find.Text.Trim().Length == 0 ? "" : _matches.Count == 0 ? "aucun résultat" : "";
+        if (_matches.Count == 0) return;
+        if (_current >= 0)
+        {
+            var (old, oldStart, oldLength) = _matches[_current];
+            if (!old.IsDisposed) old.Mark(oldStart, oldLength, Theme.Found);
+        }
+        _current = (_current + delta + _matches.Count) % _matches.Count;
+        var (message, start, length) = _matches[_current];
+        if (message.IsDisposed) return;
+        message.Mark(start, length, Theme.FoundCurrent);
+        _findCount.Text = $"{_current + 1}/{_matches.Count}";
+
+        _follow = false;
+        int y = -_list.AutoScrollPosition.Y + message.Top + message.OffsetOf(start);
+        _list.AutoScrollPosition = new Point(0, Math.Max(0, y - _list.ClientSize.Height / 3));
+    }
+
+    // --- Contexte du modèle -------------------------------------------------------------------------------------
+
+    /// <summary>Grise les messages de la conversation avant firstMessage : le modèle ne les voit plus.</summary>
+    public void FadeBefore(Session session, int firstMessage)
+    {
+        foreach (var message in Messages())
+            if (message.Session == session)
+                message.SetFaded(message.Index < firstMessage);
+    }
+
+    private IEnumerable<MessageControl> Messages() => _list.Controls.OfType<MessageControl>();
 
     /// <summary>Clic sur le dossier de travail.</summary>
     public event Action? FolderClicked;
